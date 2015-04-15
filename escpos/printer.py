@@ -18,19 +18,22 @@ from exceptions import *
 class Usb(Escpos):
     """ Define USB printer """
 
-    def __init__(self, idVendor, idProduct, interface=0, in_ep=0x82, out_ep=0x01):
+    def __init__(self, idVendor, idProduct, interface=0, in_ep=0x82, out_ep=0x01, outputToBuffer=False):
         """
-        @param idVendor  : Vendor ID
-        @param idProduct : Product ID
-        @param interface : USB device interface
-        @param in_ep     : Input end point
-        @param out_ep    : Output end point
+        @param idVendor       : Vendor ID
+        @param idProduct      : Product ID
+        @param interface      : USB device interface
+        @param in_ep          : Input end point
+        @param out_ep         : Output end point
+        @param outputToBuffer : Output to buffer
         """
-        self.idVendor  = idVendor
-        self.idProduct = idProduct
-        self.interface = interface
-        self.in_ep     = in_ep
-        self.out_ep    = out_ep
+        self.idVendor       = idVendor
+        self.idProduct      = idProduct
+        self.interface      = interface
+        self.in_ep          = in_ep
+        self.out_ep         = out_ep
+        self.outputToBuffer = outputToBuffer
+        self.buffer         = ""
         self.open()
 
 
@@ -52,10 +55,19 @@ class Usb(Escpos):
         except usb.core.USBError as e:
             print "Could not set configuration: %s" % str(e)
 
+    def flush(self):
+        self.device.write(self.out_ep, self.buffer, self.interface)
+        self.clear()
+
+    def clear(self):
+        self.buffer = ""
 
     def _raw(self, msg):
         """ Print any command sent in raw format """
-        self.device.write(self.out_ep, msg, self.interface)
+        if self.outputToBuffer == False:
+            self.device.write(self.out_ep, msg, self.interface)
+        else:
+            self.buffer += msg
 
 
     def __del__(self):
@@ -63,7 +75,6 @@ class Usb(Escpos):
         if self.device:
             usb.util.dispose_resources(self.device)
         self.device = None
-
 
 
 class Serial(Escpos):
@@ -165,3 +176,22 @@ class File(Escpos):
     def __del__(self):
         """ Close system file """
         self.device.close()
+
+
+class Dummy(Escpos):
+    """ Define Dummy printer """
+
+    def __init__(self):
+        """
+        """
+        self.buffer = ""
+
+    def flush(self):
+        self.clear_buffer()
+
+    def clear(self):
+        self.buffer = ""
+
+    def _raw(self, msg):
+        """ Print any command sent in raw format """
+        self.buffer += msg
